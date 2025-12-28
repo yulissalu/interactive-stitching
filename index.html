@@ -15,7 +15,7 @@
     }
     canvas {
       display: block;
-      touch-action: none;              /* stops scroll/zoom gestures */
+      touch-action: none;
       -webkit-tap-highlight-color: transparent;
     }
   </style>
@@ -29,11 +29,9 @@
 
     const BG = "#210706";
     const STROKE = "#5E657B";
-    const S = 33.55; // grid cell size
+    const S = 33.55;
 
-    function randBool() {
-      return Math.random() < 0.5 ? 0 : 1;
-    }
+    function randBool() { return Math.random() < 0.5 ? 0 : 1; }
 
     function resize() {
       const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -69,11 +67,10 @@
       const rowStart = [];
       for (let r = 0; r < rows; r++) rowStart.push(randBool());
 
-      const tx = 2, ty = 2; // translate(2,2)
+      const tx = 2, ty = 2;
 
       ctx.beginPath();
 
-      // vertical lines
       for (let c = 0; c < cols; c++) {
         for (let r = 0; r < rows; r++) {
           if ((r + colStart[c]) % 2 === 0) {
@@ -86,7 +83,6 @@
         }
       }
 
-      // horizontal lines
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           if ((c + rowStart[r]) % 2 === 0) {
@@ -109,24 +105,37 @@
 
     window.addEventListener("resize", redraw);
 
-    // IMPORTANT: press-only trigger
-    canvas.addEventListener("pointerdown", (e) => {
-      // Prevent the synthetic click that can happen after touch
-      e.preventDefault();
+    // ---- FIX: de-dupe double events in Framer ----
+    let locked = false;
+    const lockForMs = 180; // small, just enough to swallow the duplicate
 
-      // Capture so the gesture stays "owned" by canvas
-      try { canvas.setPointerCapture(e.pointerId); } catch {}
+    function triggerOnce(e) {
+      // Stop follow-up synthetic events
+      if (e) {
+        if (typeof e.preventDefault === "function") e.preventDefault();
+        if (typeof e.stopPropagation === "function") e.stopPropagation();
+      }
+
+      if (locked) return;
+      locked = true;
 
       redraw();
-    }, { passive: false });
 
-    // Block any click that might still be produced by the browser
+      setTimeout(() => { locked = false; }, lockForMs);
+    }
+
+    // Some environments emit pointerdown + mousedown; listen to both but dedupe.
+    canvas.addEventListener("pointerdown", triggerOnce, { passive: false });
+    canvas.addEventListener("mousedown", triggerOnce, { passive: false });
+    canvas.addEventListener("touchstart", triggerOnce, { passive: false });
+
+    // Prevent click from doing anything (click often arrives after touch/pointer)
     canvas.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
     }, true);
+    // ---------------------------------------------
 
-    // Initial render (like setup + noLoop)
     redraw();
   </script>
 </body>
