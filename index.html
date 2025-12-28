@@ -10,11 +10,12 @@
       height: 100%;
       overflow: hidden;
       background: #210706;
+      display: grid;
+      place-items: center;
     }
     canvas {
       display: block;
-      margin: 0 auto;
-      touch-action: manipulation; /* same as your working embed */
+      touch-action: none;
       -webkit-tap-highlight-color: transparent;
     }
   </style>
@@ -23,102 +24,119 @@
   <canvas id="c"></canvas>
 
   <script>
-    const canvas = document.getElementById("c");
-    const ctx = canvas.getContext("2d");
+    // ---- prevents double-initialization in embedded environments ----
+    if (window.__gridSketchInit) {
+      // If Framer re-runs the script, do nothing.
+    } else {
+      window.__gridSketchInit = true;
 
-    const BG = "#210706";
-    const STROKE = "#5E657B";
-    const S = 33.55;
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
 
-    function randBool() {
-      return Math.random() < 0.5 ? 0 : 1;
-    }
+      const BG = "#210706";
+      const STROKE = "#5E657B";
+      const S = 33.55;
 
-    function resize() {
-      const dpr = Math.max(1, window.devicePixelRatio || 1);
-      const size = Math.min(window.innerWidth, window.innerHeight);
+      function randBool() { return Math.random() < 0.5 ? 0 : 1; }
 
-      canvas.style.width = size + "px";
-      canvas.style.height = size + "px";
-      canvas.width = Math.floor(size * dpr);
-      canvas.height = Math.floor(size * dpr);
+      function resize() {
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const size = Math.min(window.innerWidth, window.innerHeight);
 
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = STROKE;
-      ctx.lineCap = "butt";
-    }
+        canvas.style.width = size + "px";
+        canvas.style.height = size + "px";
+        canvas.width = Math.floor(size * dpr);
+        canvas.height = Math.floor(size * dpr);
 
-    function draw() {
-      const W = parseFloat(canvas.style.width);
-      const H = parseFloat(canvas.style.height);
-
-      ctx.fillStyle = BG;
-      ctx.fillRect(0, 0, W, H);
-
-      ctx.strokeStyle = STROKE;
-      ctx.lineWidth = 1;
-
-      const cols = W / S;
-      const rows = H / S;
-
-      const colStart = [];
-      for (let c = 0; c < cols; c++) colStart.push(randBool());
-
-      const rowStart = [];
-      for (let r = 0; r < rows; r++) rowStart.push(randBool());
-
-      const tx = 2, ty = 2;
-
-      ctx.beginPath();
-
-      // vertical lines
-      for (let c = 0; c < cols; c++) {
-        for (let r = 0; r < rows; r++) {
-          if ((r + colStart[c]) % 2 === 0) {
-            const x = c * S + tx;
-            const y1 = r * S + ty;
-            const y2 = (r + 1) * S + ty;
-            ctx.moveTo(x, y1);
-            ctx.lineTo(x, y2);
-          }
-        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = STROKE;
+        ctx.lineCap = "butt";
       }
 
-      // horizontal lines
-      for (let r = 0; r < rows; r++) {
+      function draw() {
+        const W = parseFloat(canvas.style.width);
+        const H = parseFloat(canvas.style.height);
+
+        ctx.fillStyle = BG;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.strokeStyle = STROKE;
+        ctx.lineWidth = 1;
+
+        const cols = W / S;
+        const rows = H / S;
+
+        const colStart = [];
+        for (let c = 0; c < cols; c++) colStart.push(randBool());
+
+        const rowStart = [];
+        for (let r = 0; r < rows; r++) rowStart.push(randBool());
+
+        const tx = 2, ty = 2;
+
+        ctx.beginPath();
+
         for (let c = 0; c < cols; c++) {
-          if ((c + rowStart[r]) % 2 === 0) {
-            const y = r * S + ty;
-            const x1 = c * S + tx;
-            const x2 = (c + 1) * S + tx;
-            ctx.moveTo(x1, y);
-            ctx.lineTo(x2, y);
+          for (let r = 0; r < rows; r++) {
+            if ((r + colStart[c]) % 2 === 0) {
+              const x = c * S + tx;
+              const y1 = r * S + ty;
+              const y2 = (r + 1) * S + ty;
+              ctx.moveTo(x, y1);
+              ctx.lineTo(x, y2);
+            }
           }
         }
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if ((c + rowStart[r]) % 2 === 0) {
+              const y = r * S + ty;
+              const x1 = c * S + tx;
+              const x2 = (c + 1) * S + tx;
+              ctx.moveTo(x1, y);
+              ctx.lineTo(x2, y);
+            }
+          }
+        }
+
+        ctx.stroke();
       }
 
-      ctx.stroke();
-    }
+      function redraw() {
+        resize();
+        draw();
+      }
 
-    function redraw() {
-      resize();
-      draw();
-    }
+      window.addEventListener("resize", redraw);
 
-    window.addEventListener("resize", redraw);
+      // ---- hard de-dupe: ignore events that arrive "too close" together ----
+      let lastStamp = -1;
+      function shouldFire(e) {
+        // timeStamp is high-res and consistent for duplicates
+        const t = e.timeStamp || performance.now();
+        if (lastStamp >= 0 && Math.abs(t - lastStamp) < 40) return false;
+        lastStamp = t;
+        return true;
+      }
 
-    // Match your working embed: click for desktop
-    canvas.addEventListener("click", redraw);
+      function onPress(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!shouldFire(e)) return;
+        redraw();
+      }
 
-    // Match your working embed: touchstart for iPhone/tablets
-    canvas.addEventListener("touchstart", (e) => {
-      e.preventDefault();
+      // One unified event for mouse + touch + pen
+      canvas.addEventListener("pointerdown", onPress, { passive: false });
+
+      // Block synthesized follow-ups
+      canvas.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+      canvas.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+
       redraw();
-    }, { passive: false });
-
-    // Initial render (like setup + noLoop)
-    redraw();
+    }
   </script>
 </body>
 </html>
