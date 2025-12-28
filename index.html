@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #210706;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+    canvas {
+      display: block;
+      touch-action: manipulation; /* allows tap, reduces scroll/zoom conflicts */
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <script>
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+
+    // Matches your palette
+    const BG = "#210706";
+    const STROKE = "#5E657B";
+
+    // Grid cell size (same as your code)
+    const S = 33.55;
+
+    function randBool() {
+      return Math.random() < 0.5 ? 0 : 1;
+    }
+
+    function resize() {
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+      // Keep it square and responsive like createCanvas(640, 640)
+      const size = Math.min(window.innerWidth, window.innerHeight);
+
+      canvas.style.width = size + "px";
+      canvas.style.height = size + "px";
+      canvas.width = Math.floor(size * dpr);
+      canvas.height = Math.floor(size * dpr);
+
+      // Draw in CSS pixels
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = STROKE;
+      ctx.lineCap = "butt";
+    }
+
+    function draw() {
+      const W = parseFloat(canvas.style.width);
+      const H = parseFloat(canvas.style.height);
+
+      // background('#210706')
+      ctx.fillStyle = BG;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = STROKE;
+      ctx.lineWidth = 1;
+
+      const cols = W / S;
+      const rows = H / S;
+
+      // Random 0/1 labels
+      const colStart = [];
+      for (let c = 0; c < cols; c++) colStart.push(randBool());
+
+      const rowStart = [];
+      for (let r = 0; r < rows; r++) rowStart.push(randBool());
+
+      // Equivalent to push(); translate(2,2); ... pop();
+      const tx = 2, ty = 2;
+
+      // Vertical lines (alternating)
+      ctx.beginPath();
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+          if ((r + colStart[c]) % 2 === 0) {
+            const x = c * S + tx;
+            const y1 = r * S + ty;
+            const y2 = (r + 1) * S + ty;
+            ctx.moveTo(x, y1);
+            ctx.lineTo(x, y2);
+          }
+        }
+      }
+
+      // Horizontal lines (alternating)
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if ((c + rowStart[r]) % 2 === 0) {
+            const y = r * S + ty;
+            const x1 = c * S + tx;
+            const x2 = (c + 1) * S + tx;
+            ctx.moveTo(x1, y);
+            ctx.lineTo(x2, y);
+          }
+        }
+      }
+      ctx.stroke();
+    }
+
+    function redraw() {
+      resize();
+      draw();
+    }
+
+    // Touch-friendly: prevent page scrolling while tapping the canvas
+    canvas.style.touchAction = "none";
+
+    // Desktop click
+    canvas.addEventListener("click", redraw);
+
+    // Mobile/tablet tap
+    canvas.addEventListener(
+      "touchstart",
+      (e) => {
+        e.preventDefault();
+        redraw();
+      },
+      { passive: false }
+    );
+
+    // Stylus / unified pointer support (optional but nice)
+    canvas.addEventListener("pointerdown", (e) => {
+      // On many mobile browsers pointerdown fires too; this is fine
+      // because redraw is deterministic-ish and fast.
+      // If you get double redraws on your device, remove this listener.
+      redraw();
+    });
+
+    window.addEventListener("resize", redraw);
+
+    // Initial render (like setup + noLoop)
+    redraw();
+  </script>
+</body>
+</html>
